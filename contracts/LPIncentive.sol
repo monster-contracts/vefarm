@@ -41,6 +41,10 @@ interface ve {
     address,
     uint256
   ) external;
+
+  function attach(uint256, address) external;
+
+  function detach(uint256, address) external;
 }
 
 contract LPIncentive {
@@ -270,6 +274,7 @@ contract LPIncentive {
       require(ve(_ve).ownerOf(tokenId) == msg.sender);
       if (tokenIds[msg.sender] == 0) {
         tokenIds[msg.sender] = tokenId;
+        ve(_ve).attach(tokenId, msg.sender);
       }
       require(tokenIds[msg.sender] == tokenId);
     } else {
@@ -367,6 +372,7 @@ contract LPIncentive {
     if (tokenId > 0) {
       require(tokenId == tokenIds[msg.sender]);
       tokenIds[msg.sender] = 0;
+      ve(_ve).detach(tokenId, msg.sender);
     } else {
       tokenId = tokenIds[msg.sender];
     }

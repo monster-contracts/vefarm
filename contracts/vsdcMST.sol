@@ -144,6 +144,11 @@ interface IERC721 is IERC165 {
     bool approved
   );
 
+  event Attach(address indexed owner, address indexed gauge, uint256 tokenId);
+  event Detach(address indexed owner, address indexed gauge, uint256 tokenId);
+  event Voted(address indexed voter, uint256 tokenId, int256 weight);
+  event Abstained(uint256 tokenId, int256 weight);
+
   /**
    * @dev Returns the number of tokens in ``owner``'s account.
    */
@@ -386,6 +391,7 @@ contract ve is IERC721, IERC721Metadata {
   int128 internal constant iMAXTIME = 4 * 365 * 86400;
   uint256 internal constant MULTIPLIER = 1 ether;
 
+  address public immutable safe;
   address public immutable token;
   uint256 public supply;
   mapping(uint256 => LockedBalance) public locked;
@@ -402,9 +408,10 @@ contract ve is IERC721, IERC721Metadata {
   mapping(uint256 => uint256) public attachments;
   mapping(uint256 => bool) public voted;
   address public voter;
+  mapping(address => bool) public isGauge;
 
-  string public constant name = "veNFT";
-  string public constant symbol = "veNFT";
+  string public constant name = "vedcMST";
+  string public constant symbol = "vedcMST";
   string public constant version = "1.0.0";
   uint8 public constant decimals = 18;
 
@@ -454,9 +461,9 @@ contract ve is IERC721, IERC721Metadata {
 
   /// @notice Contract constructor
   /// @param token_addr `ERC20CRV` token address
-  constructor(address token_addr) {
+  constructor(address token_addr, address _safe) {
     token = token_addr;
-    voter = msg.sender;
+    safe = _safe;
     point_history[0].blk = block.number;
     point_history[0].ts = block.timestamp;
 
@@ -1025,28 +1032,37 @@ contract ve is IERC721, IERC721Metadata {
   }
 
   function setVoter(address _voter) external {
-    require(msg.sender == voter);
+    require(msg.sender == safe);
     voter = _voter;
   }
 
-  function voting(uint256 _tokenId) external {
-    require(msg.sender == voter);
+  function setGauge(address _gauge) external {
+    require(msg.sender == safe);
+    isGauge[_gauge] = true;
+  }
+
+  function voting(uint256 _tokenId, int256 _poolWeight) external {
+    require(msg.sender == voter, "only voter");
     voted[_tokenId] = true;
+    emit Voted(msg.sender, _tokenId, _poolWeight);
   }
 
-  function abstain(uint256 _tokenId) external {
-    require(msg.sender == voter);
+  function abstain(uint256 _tokenId, int256 _weight) external {
+    require(msg.sender == voter, "only voter");
     voted[_tokenId] = false;
+    emit Abstained(tokenId, _weight);
   }
 
-  function attach(uint256 _tokenId) external {
-    require(msg.sender == voter);
+  function attach(uint256 _tokenId, address account) external {
+    require(isGauge[msg.sender], "only gauge");
     attachments[_tokenId] = attachments[_tokenId] + 1;
+    emit Attach(account, msg.sender, tokenId);
   }
 
-  function detach(uint256 _tokenId) external {
-    require(msg.sender == voter);
+  function detach(uint256 _tokenId, address account) external {
+    require(isGauge[msg.sender], "only gauge");
     attachments[_tokenId] = attachments[_tokenId] - 1;
+    emit Detach(account, msg.sender, tokenId);
   }
 
   function merge(uint256 _from, uint256 _to) external {
