@@ -52,7 +52,7 @@ contract LPIncentive {
   address public immutable _ve; // the ve token used for gauges
   address public rewardToken; // incentive token
 
-  uint256 internal constant DURATION = 7 days;
+  uint256 internal constant DURATION = 14 days;
   uint256 internal constant PRECISION = 10**18;
 
   uint256 public lastUpdateTime;
@@ -266,17 +266,19 @@ contract LPIncentive {
   function deposit(uint256 amount, uint256 tokenId) public lock {
     require(amount > 0);
 
+    (rewardPerTokenStored, lastUpdateTime) = _updateRewardPerToken();
+
     _safeTransferFrom(stake, msg.sender, address(this), amount);
     totalSupply += amount;
     balanceOf[msg.sender] += amount;
 
     if (tokenId > 0) {
-      require(ve(_ve).ownerOf(tokenId) == msg.sender);
+      require(ve(_ve).ownerOf(tokenId) == msg.sender, "Only your ve");
       if (tokenIds[msg.sender] == 0) {
         tokenIds[msg.sender] = tokenId;
         ve(_ve).attach(tokenId, msg.sender);
       }
-      require(tokenIds[msg.sender] == tokenId);
+      require(tokenIds[msg.sender] == tokenId, "Cant change ve");
     } else {
       tokenId = tokenIds[msg.sender];
     }
